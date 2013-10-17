@@ -39,6 +39,7 @@
 (defvar swipe-mode-alist
   '((help-mode help-go-forward help-go-back)
     (Info-mode Info-history-forward Info-history-back)
+    (eww-mode eww-forward-url eww-back-url)
     (rcirc-mode swipe-rcirc-next-buffer t)
     (w3m-mode w3m-view-next-page w3m-view-previous-page)
     (slime-inspector-mode slime-inspector-pop)
