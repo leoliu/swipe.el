@@ -32,6 +32,10 @@
   (unless (fboundp 'mac-start-animation) ; New in Mac Port 2.91
     (defalias 'mac-start-animation 'ignore)))
 
+(defun swipe-buffer-hidden-p (buffer)
+  ;; See also `get-next-valid-buffer'.
+  (string-prefix-p " " (if (bufferp buffer) (buffer-name buffer) buffer)))
+
 (defvar swipe-mode-alist
   '((help-mode help-go-forward help-go-back)
     (Info-mode Info-history-forward Info-history-back)
@@ -89,24 +93,22 @@
         (mac-start-animation (selected-window) :direction 'left)))))
 
 (defun swipe-next-same-buffer ()
-  "Switch to next buffer with same major mode."
+  "Switch to next buffer with the same major mode."
   (loop for b in (delete (current-buffer) (buffer-list))
-        with mm = major-mode and cb = (current-buffer)
-        when (and (eq mm (with-current-buffer b major-mode))
-                  ;; copied from `get-next-valid-buffer'
-                  (not (eq (aref (buffer-name b) 0) ?\s)))
-        do (switch-to-buffer b)
-        (bury-buffer cb)
-        (return)))
+        when (and (eq major-mode (buffer-local-value 'major-mode b))
+                  (not (swipe-buffer-hidden-p b)))
+        do (bury-buffer (current-buffer)) (switch-to-buffer b)
+        (return b)
+        finally (user-error "No next `%s' buffer" major-mode)))
 
 (defun swipe-prev-same-buffer ()
-  "Switch to previous buffer with same major mode."
-  (loop for b in (nreverse (buffer-list))
-        with mm = major-mode
-        when (and (eq mm (with-current-buffer b major-mode))
-                  (not (eq (aref (buffer-name b) 0) ?\s)))
+  "Switch to previous buffer with the same major mode."
+  (loop for b in (nreverse (delete (current-buffer) (buffer-list)))
+        when (and (eq major-mode (buffer-local-value 'major-mode b))
+                  (not (swipe-buffer-hidden-p b)))
         do (switch-to-buffer b)
-        (return)))
+        (return b)
+        finally (user-error "No previous `%s' buffer" major-mode)))
 
 (defvar swipe-mode-map
   (let ((m (make-sparse-keymap)))
