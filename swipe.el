@@ -29,7 +29,10 @@
 (eval-when-compile (require 'cl))
 
 (eval-and-compile
-  (unless (fboundp 'mac-start-animation) ; New in Mac Port 2.91
+  (unless (fboundp 'user-error)         ; new in emacs 24.3
+    (defalias 'user-error 'error))
+
+  (unless (fboundp 'mac-start-animation) ; new in Mac Port 2.91
     (defalias 'mac-start-animation 'ignore)))
 
 (defun swipe-buffer-hidden-p (buffer)
