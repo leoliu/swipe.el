@@ -1,6 +1,6 @@
 ;;; swipe.el --- use swiping gesture                 -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2013  Leo Liu
+;; Copyright (C) 2011-2014  Leo Liu
 
 ;; Author: Leo Liu <sdl.web@gmail.com>
 ;; Version: 1.0
@@ -26,14 +26,14 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
+(require 'cl-lib)
 
 (eval-and-compile
-  (unless (fboundp 'user-error)         ; new in emacs 24.3
-    (defalias 'user-error 'error))
+  (or (fboundp 'user-error)             ;New in emacs 24.3
+      (defalias 'user-error 'error))
 
-  (unless (fboundp 'mac-start-animation) ; new in Mac Port 2.91
-    (defalias 'mac-start-animation 'ignore)))
+  (or (fboundp 'mac-start-animation)    ;New in Mac Port 2.91
+      (defalias 'mac-start-animation 'ignore)))
 
 (defun swipe-buffer-hidden-p (buffer)
   ;; See also `get-next-valid-buffer'.
@@ -45,8 +45,10 @@
     (eww-mode eww-forward-url eww-back-url)
     (rcirc-mode swipe-rcirc-next-buffer t)
     (w3m-mode w3m-view-next-page w3m-view-previous-page)
-    (slime-inspector-mode slime-inspector-pop)
-    (rfcview-mode pop-to-mark-command)))
+    (slime-inspector-mode nil slime-inspector-pop)
+    (rfcview-mode nil pop-to-mark-command))
+  "An associated list of the form (MAJOR-MODE FORWARD-FN BACKWARD-FN).
+FORWARD-FN and BACKWARD-FN can be t to use the default value.")
 
 (defvar swipe-forward-function 'swipe-next-same-buffer
   "Function used by `swipe-forward' to do the work.")
@@ -57,9 +59,9 @@
 (defun swipe-forward-function ()
   (if (local-variable-p swipe-forward-function)
       swipe-forward-function
-    (pcase (loop for x in swipe-mode-alist
-                 when (derived-mode-p (car x))
-                 return x)
+    (pcase (cl-some (lambda (x)
+                      (and (derived-mode-p (car x)) x))
+                    swipe-mode-alist)
       (`nil 'swipe-next-same-buffer)
       (`(,_ t . ,_) 'swipe-next-same-buffer)
       (`(,_ ,f . ,_) f))))
@@ -67,9 +69,9 @@
 (defun swipe-backward-function ()
   (if (local-variable-p swipe-backward-function)
       swipe-backward-function
-    (pcase (loop for x in swipe-mode-alist
-                 when (derived-mode-p (car x))
-                 return x)
+    (pcase (cl-some (lambda (x)
+                      (and (derived-mode-p (car x)) x))
+                    swipe-mode-alist)
       (`nil 'swipe-prev-same-buffer)
       (`(,_ ,_ t) 'swipe-prev-same-buffer)
       (`(,_ ,_ ,b) b))))
@@ -98,21 +100,21 @@
 
 (defun swipe-next-same-buffer ()
   "Switch to next buffer with the same major mode."
-  (loop for b in (delete (current-buffer) (buffer-list))
-        when (and (eq major-mode (buffer-local-value 'major-mode b))
-                  (not (swipe-buffer-hidden-p b)))
-        do (bury-buffer (current-buffer)) (switch-to-buffer b)
-        (return b)
-        finally (user-error "No next `%s' buffer" major-mode)))
+  (cl-loop for b in (delete (current-buffer) (buffer-list))
+           when (and (eq major-mode (buffer-local-value 'major-mode b))
+                     (not (swipe-buffer-hidden-p b)))
+           do (bury-buffer (current-buffer)) (switch-to-buffer b)
+           (cl-return b)
+           finally (user-error "No next `%s' buffer" major-mode)))
 
 (defun swipe-prev-same-buffer ()
   "Switch to previous buffer with the same major mode."
-  (loop for b in (nreverse (delete (current-buffer) (buffer-list)))
-        when (and (eq major-mode (buffer-local-value 'major-mode b))
-                  (not (swipe-buffer-hidden-p b)))
-        do (switch-to-buffer b)
-        (return b)
-        finally (user-error "No previous `%s' buffer" major-mode)))
+  (cl-loop for b in (nreverse (delete (current-buffer) (buffer-list)))
+           when (and (eq major-mode (buffer-local-value 'major-mode b))
+                     (not (swipe-buffer-hidden-p b)))
+           do (switch-to-buffer b)
+           (cl-return b)
+           finally (user-error "No previous `%s' buffer" major-mode)))
 
 (defvar swipe-mode-map
   (let ((m (make-sparse-keymap)))
